@@ -17,6 +17,13 @@ white_list_paths = [
 "/lib",
 "/lib64",
 "/usr/sbin",
+"/sbin",
+"/etc/init.d",
+"/etc/profile.d",
+"/usr/share/system-config-printer",
+"/usr/share/kylin-display-switch",
+"/usr/share/kylin-update-manager",
+"/opt/kingsoft/wps-office/office6",
 ]
 
 ignore_path_table = [
@@ -26,9 +33,11 @@ ignore_path_table = [
 
 ignore_suffix_table = [
 "\.c",
-#"\.h",
+"\.h",
 "\.txt",
 ]
+
+recursed_path_table = []
 
 exec_table = []
 script_table = []
@@ -36,6 +45,7 @@ lib_table = []
 unknown_table = []
 
 elfmsgstr = ['\x7f', '\x45', '\x4c', '\x46', '\x01', '\x01','\x01','\x00','\x00','\x00','\x00','\x00','\x00','\x00','\x00','\x00','\x00']
+scripts_header = ['#', '!', '/']
 # assume that file is exec or library
 def elf_type_get_append(file):
     elf_f = open(file, 'r')
@@ -43,6 +53,12 @@ def elf_type_get_append(file):
     if content is None:
         return
     else:
+        if (len(content) <= 3):
+            return
+        if content[0] == scripts_header[0] and content[1] == scripts_header[1] and content[2] == scripts_header[2]:
+            script_table.append(file)
+            return
+            
         if (len(content) <= 17):    
             unknown_table.append(file)
             return
@@ -57,13 +73,14 @@ def elf_type_get_append(file):
 	elif (content[16]) > '\x00' and (content[16]) < '\x05':
             lib_table.append(file)
 	else:
-            for i in range(17):
-                #print("unknown ELF" + file)
-                unknown_table.append(file)
+            unknown_table.append(file)
     return
 
 
-def recurse_dir (path, f):
+def recurse_dir (path):
+    if os.path.isdir(path) == False:
+        #print(path + "-- path not exist\n")
+        return 
     files = os.listdir(path)
     for file in files:
         file = os.path.realpath(os.path.join(path, file))
@@ -82,7 +99,11 @@ def recurse_dir (path, f):
 #        if not re.match("^/usr/src.*", file) is None:
 #            continue
         if os.path.isdir(file):
-            recurse_dir(file, f)
+            if file not in recursed_path_table:
+                recursed_path_table.append(file)
+                recurse_dir(file)
+            else:
+                pass
         if os.path.isfile(file):
             continue_flag = 0
             for ignore_suffix in ignore_suffix_table:
@@ -103,9 +124,10 @@ def recurse_dir (path, f):
                 elf_type_get_append(file)         
 #f.write(i + '\n')
             
-def list_files(paths, f):
+def list_files(paths):
     for i in paths:
-        recurse_dir(i, f)
+        print("Start listing "+ i + "\n")
+        recurse_dir(i)
 
 optlist, args = getopt.getopt(sys.argv[1:],'ld:')
 for option, value in optlist:
@@ -122,12 +144,13 @@ if param_config["Directory"] != '':
 keys_filename = os.path.split(sys.path[0])[0] + "/keys"
 
 
-keys_f = open(keys_filename, 'w+')
 
 white_list_paths.sort();
 
-list_files(white_list_paths, keys_f)
-
+print("listing files...\n")
+list_files(white_list_paths)
+keys_f = open(keys_filename, 'w+')
+print("Start writing...\n")
 keys_f.write("[excutable]\n")
 for i in exec_table:
     keys_f.write(i+"\n")
@@ -143,7 +166,7 @@ for i in script_table:
 keys_f.write("[unknown]\n")
 for i in unknown_table:
     keys_f.write(i+"\n")
-
+print("Done\n")
 
 
 #print(elfmsgstr)
