@@ -26,6 +26,8 @@ white_list_paths = [
 "/opt/kingsoft/wps-office/office6",
 ]
 
+white_list_files = []
+
 ignore_path_table = [
 "/dev",
 #"/usr/src",
@@ -144,10 +146,20 @@ if param_config["Directory"] != '':
 keys_filename = os.path.split(sys.path[0])[0] + "/keys"
 
 
-
+white_list_files.sort();
 white_list_paths.sort();
 
 print("listing files...\n")
+
+for i in white_list_files:
+    if not re.match(".*\.py$", i) is None:
+        script_table.append(re.match(".*\.py$", "".join(i)).group())
+    elif not re.match(".*\.sh$", i) is None:
+        script_table.append(re.match(".*\.sh$", "".join(i)).group())
+    else:
+        elf_type_get_append(i)
+
+
 list_files(white_list_paths)
 keys_f = open(keys_filename, 'w+')
 print("Start writing...\n")
